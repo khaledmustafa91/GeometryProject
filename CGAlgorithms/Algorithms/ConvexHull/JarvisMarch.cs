@@ -124,8 +124,12 @@ namespace CGAlgorithms.Algorithms.ConvexHull
             }
             if (l.Count >= 2)
                 outLines.Add(new Line(l[l.Count - 1], l[0]));
+            PassConvexHall(outPoints);
         }
-
+        public static List<Point> PassConvexHall(List<Point> point)
+        {
+            return point;
+        }
         public override string ToString()
         {
             return "Convex Hull - Jarvis March";
