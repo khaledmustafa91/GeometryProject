@@ -1,6 +1,7 @@
 ﻿using CGUtilities;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CGAlgorithms.Algorithms.ConvexHull
 {
@@ -9,15 +10,13 @@ namespace CGAlgorithms.Algorithms.ConvexHull
         public override void Run(List<Point> points, List<Line> lines, List<Polygon> polygons, ref List<Point> outPoints, ref List<Line> outLines, ref List<Polygon> outPolygons)
         {
 
-            points.Sort(HelperMethods.sortOnX);
+            //points.Sort(HelperMethods.sortOnX);
+            points = points.OrderBy(x => x.X).ThenBy(x => x.Y).ToList();
             List<Point> Resultpoints = new List<Point>();
-            //outpoints.Add(Divide(points));
             Resultpoints = Divide(points);
             for (int i = 0; i < Resultpoints.Count; i++)
                 outPoints.Add(Resultpoints[i]);
-                            
-            //outPoints.Add(points[index]);
-
+            
         }
         public List<Point> Divide(List<Point> points)
         {
@@ -30,7 +29,9 @@ namespace CGAlgorithms.Algorithms.ConvexHull
             }
             else // Here we divide point and pass it again till number of points equal 6  
             {
-                int MI = (points.Count / 2) - 1; // get mid point of points 
+                int MI = (points.Count / 2); // get mid point of points 
+                if (points.Count % 2 != 0)
+                    MI++;
                 List<Point> Left = new List<Point>(), Right = new List<Point>();
                 for (int i = 0; i < MI; i++)
                     Left.Add(points[i]); // Add all left point in the list to Left list
@@ -39,8 +40,21 @@ namespace CGAlgorithms.Algorithms.ConvexHull
                 // pass and return new points 
                 List<Point> LCH = Divide(Left); 
                 List<Point> RCH = Divide(Right);
-                return Merge(LCH,RCH);
+                return Merge(LCH, RCH);
             }
+        }
+
+         
+        public int orientation(Point a, Point b,
+                Point c)
+        {
+            int res =(int) (b.Y - a.Y) * (int)(c.X- b.X) -
+                      (int) (c.Y- b.Y) * (int) (b.X- a.X);
+            if (res == 0)
+                return 0;
+            if (res > 0)
+                return 1;
+            return -1;
         }
         public List<Point> Merge(List<Point> LCH, List<Point> RCH)
         {
@@ -77,7 +91,7 @@ namespace CGAlgorithms.Algorithms.ConvexHull
                     y = RCH[i].Y;
                     RCHindex = i;
                 }
-                else if (RCH[i].X == x && RCH[i].Y > y)
+                else if (RCH[i].X == x && RCH[i].Y < y)
                 {
                     x = RCH[i].X;
                     y = RCH[i].Y;
@@ -85,174 +99,103 @@ namespace CGAlgorithms.Algorithms.ConvexHull
                 }
             }
             Point MRP = null;
-            if (RCH.Count > 0)
-                MRP = RCH[RCHindex];
+            MRP = RCH[RCHindex];
             #endregion
+
+            #region UP Supporting line
             int ULCHCounter = LCHindex;
             int URCHCounter = RCHindex;
-            Point ULP = MLP, URP = MRP;
-            Point NextLP = null;
-            if (LCH.Count > 0 && ULCHCounter < LCH.Count-1)
-                NextLP = LCH[ULCHCounter+ 1];
-            Point PreRP = null;
-            if (RCH.Count > 0 && URCHCounter > 0)
-                PreRP = RCH[URCHCounter -1];
-            
-            bool changeLCH = false;
-            bool changeRCH = false;
-
-            #region Up Supporting Line
-            do
+            Point ULP = MLP, URP = MRP; // ULP as inda and URP as indb
+            bool done = false;
+            int oldLCH = -1, oldRCH = -1;
+            int iter = 0; 
+            while (!done)
             {
-
-                while (true)
+                done = true;
+                Line FromRtoL = new Line(URP, ULP);
+                oldLCH = LCHindex;
+                while(orientation(RCH[RCHindex], LCH[LCHindex], LCH[(LCHindex + 1) % LCH.Count]) > 0)
                 {
-                    Line FromRtoL = null;
-                    if (URP != null && ULP != null && NextLP != null)
-                    {
-                        FromRtoL = new Line(URP, ULP);
-                        Enum e = HelperMethods.CheckTurn(FromRtoL, NextLP);
-                        if (e.Equals(Enums.TurnType.Left) || e.Equals(Enums.TurnType.Colinear))
-                        {
-                            changeLCH = false;
-                            break;
-                        }
-                        else
-                        {
+                    LCHindex = (LCHindex + 1) % LCH.Count;
+                    FromRtoL = new Line(URP, LCH[LCHindex]);
+                    done = false;
+                }
+                if(done == true && orientation(RCH[RCHindex], LCH[LCHindex], LCH[(LCHindex + 1) % LCH.Count]) == 0)
+                    LCHindex = (LCHindex + 1) % LCH.Count;
 
-                            changeLCH = true;
-                            ULP = NextLP;
-                            if (ULCHCounter < LCH.Count - 1)
-                            {
-                                NextLP = LCH[ULCHCounter + 1];
-                                ULCHCounter++;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        changeLCH = false;
-                        break;
-                    }
-                }
-                while (true)
+                oldRCH = RCHindex;
+                FromRtoL = new Line(ULP, URP);
+                while(orientation(LCH[LCHindex], RCH[RCHindex], RCH[(RCH.Count + RCHindex - 1) % RCH.Count]) < 0)
                 {
-                    Line FromRtoL = null;
-                    if (URP != null && ULP != null && PreRP != null)
-                    {
-                        FromRtoL = new Line(ULP, URP);
-                        Enum e = HelperMethods.CheckTurn(FromRtoL, PreRP);
-                        if (e.Equals(Enums.TurnType.Right) || e.Equals(Enums.TurnType.Colinear))
-                        {
-                            changeRCH = false;
-                            break;
-                        }
-                        else
-                        {
-                            changeRCH = true;
-                            URP = PreRP;
-                            if (URCHCounter > 0)
-                            {
-                                PreRP = RCH[URCHCounter - 1];
-                                URCHCounter--;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        changeRCH = false;
-                        break;
-                    }
+                    RCHindex = (RCH.Count + RCHindex - 1) % RCH.Count;
+                    FromRtoL = new Line(ULP, RCH[RCHindex]);
+                    done = false;
                 }
-            } while (changeRCH || changeLCH);
+                if(done == true && orientation(LCH[LCHindex], RCH[RCHindex], RCH[(RCH.Count + RCHindex - 1) % RCH.Count]) == 0)
+                    RCHindex = (RCH.Count + RCHindex - 1) % RCH.Count;
+            }
+            int uppera = LCHindex, upperb = RCHindex;
             #endregion
-            int DLCHCounter = LCHindex;
-            int DRCHCounter = RCHindex;
-            Point DLP = MLP, DRP = MRP;
-            Point PreLP = null;
-            if (LCH.Count > 0 && DLCHCounter > 0)
-              PreLP = LCH[DLCHCounter-1];
-            Point NextRP = null;
-            if (RCH.Count > 0 && DRCHCounter < RCH.Count-1)
-                NextRP = RCH[DRCHCounter+1];
-            changeLCH = false;
-            changeRCH = false;
 
-            #region Down Supporting Line
-            do
+            #region Down supporting line
+            ULP = MLP;
+            URP = MRP;
+            LCHindex = ULCHCounter;
+            RCHindex = URCHCounter;
+            done = false;
+            iter = 0;
+            while (!done)
             {
-
-                while (true)
+                done = true;
+                Line FromRtoL = new Line(ULP, URP);
+                oldRCH = RCHindex;
+                while(orientation(LCH[LCHindex], RCH[RCHindex], RCH[(RCHindex + 1) % RCH.Count]) > 0)
                 {
-                    Line FromRtoL = null;
-                    if (URP != null && ULP != null && PreRP != null)
-                    {
-                        FromRtoL = new Line(DRP, DLP);
-                        Enum e = HelperMethods.CheckTurn(FromRtoL, PreLP);
-                        if (e.Equals(Enums.TurnType.Left) || e.Equals(Enums.TurnType.Colinear))
-                        {
-                            changeLCH = false;
-                            break;
-                        }
-                        else
-                        {
-                            changeLCH = true;
-                            ULP = NextLP;
-                            if (DLCHCounter > 0)
-                            {
-                                NextLP = LCH[DLCHCounter - 1];
-                                DLCHCounter--;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        changeLCH = false;
-
-                        break;
-                    }
+                    RCHindex = (RCHindex + 1) % RCH.Count;
+                    FromRtoL = new Line(ULP, RCH[RCHindex]);
+                    done = false;
                 }
-                while (true)
+                if(done == true && orientation(LCH[LCHindex], RCH[RCHindex], RCH[(RCHindex + 1) % RCH.Count]) == 0)
+                    RCHindex = (RCHindex + 1) % RCH.Count;
+
+                FromRtoL = new Line(URP, ULP);
+                oldLCH = LCHindex;
+                //while (!HelperMethods.CheckTurn(FromRtoL, LCH[(LCH.Count + LCHindex - 1) % LCH.Count]).Equals(Enums.TurnType.Left))
+                while(orientation(RCH[RCHindex], LCH[LCHindex], LCH[(LCH.Count + LCHindex - 1 ) % LCH.Count]) < 0)
                 {
-                    Line FromRtoL = null;
-                    if (URP != null && ULP != null && NextRP != null)
-                    {
-                        FromRtoL = new Line(DLP, DRP);
-                        Enum e = HelperMethods.CheckTurn(FromRtoL, NextRP);
-                        if (e.Equals(Enums.TurnType.Right) || e.Equals(Enums.TurnType.Colinear))
-                        {
-                            changeRCH = false;
-                            break;
-                        }
-                        else
-                        {
-                            changeRCH = true;
-                            URP = PreRP;
-                            if (DRCHCounter < RCH.Count - 1)
-                            {
-                                PreRP = RCH[DRCHCounter + 1];
-                                DRCHCounter++;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        changeRCH = false;
+                    LCHindex = (LCH.Count + LCHindex - 1) % LCH.Count;
+                    FromRtoL = new Line(URP, LCH[LCHindex]);
 
-                        break;
-                    }
+                    done = false;
                 }
-            } while (changeRCH || changeLCH);
-
+                if(done == true && orientation(RCH[RCHindex], LCH[LCHindex], LCH[(LCH.Count + LCHindex - 1) % LCH.Count]) == 0)
+                    LCHindex = (LCH.Count + LCHindex - 1) % LCH.Count;
+            }
+            int lowera = LCHindex, lowerb = RCHindex;
             #endregion
-            List<Point> AllCH = new List<Point>();
-            for (int i = ULCHCounter; i < DLCHCounter;i++)
-                AllCH.Add(LCH[i]);
-            for (int i = URCHCounter; i < DRCHCounter; i++)
-                AllCH.Add(RCH[i]);
-            
 
-            return AllCH;
+            #region Get results
+            List<Point> ret = new List<Point>();
+            //ret contains the convex hull after merging the two convex hulls
+            //with the points sorted in anti-clockwise order
+            int ind = uppera;
+            ret.Add(LCH[uppera]);
+            while (ind != lowera)
+            {
+                ind = (ind + 1) % LCH.Count;
+                if(!ret.Contains(LCH[ind]))
+                    ret.Add(LCH[ind]);
+            }
+            ind = lowerb;
+            ret.Add(RCH[lowerb]);
+            while (ind != upperb)
+            {
+                ind = (ind + 1) % RCH.Count;
+                if(!ret.Contains(RCH[ind]))
+                    ret.Add(RCH[ind]);
+            }
+            return ret;
+            #endregion
         }
         public override string ToString()
         {
